@@ -67,7 +67,6 @@ param (
 Begin 
 	{
 	$AllEvents = @()
-	$em = get-view -Server $Server EventManager
 	$EventFilterSpec= New-Object VMware.Vim.EventFilterSpec
 	#VIServer
 	If (!$Server)
@@ -110,6 +109,7 @@ Begin
 Process
 	{
 	#Query
+	$em = get-view -Server $Server EventManager
 	$evCollector = Get-View -Server $server ($em.CreateCollectorForEvents($EventFilterSpec))
 	$PageEvents = $evCollector.ReadNextEvents(100)
 	While ($PageEvents)
