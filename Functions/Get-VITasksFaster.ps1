@@ -25,6 +25,7 @@ Function Get-VITasksFaster
   If Get-Date returned Friday, June 13, 2014 11:00:46 AM, one month ago would be Tuesday, May 13, 2014 11:00:46 AM.
   .LINK
   http://tech.zsoldier.com/
+  https://github.com/Zsoldier/zPowerCLI
   #>
 param (
 	[Parameter(Mandatory=$False,HelpMessage="ESXi or vCenter to query events from.")]
