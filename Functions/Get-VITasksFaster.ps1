@@ -1,4 +1,4 @@
-﻿#Get-VIEventsFaster
+#Get-VIEventsFaster
 #
 Function Get-VITasksFaster
 {[cmdletbinding()]
@@ -25,7 +25,6 @@ Function Get-VITasksFaster
   If Get-Date returned Friday, June 13, 2014 11:00:46 AM, one month ago would be Tuesday, May 13, 2014 11:00:46 AM.
   .LINK
   http://tech.zsoldier.com/
-  https://github.com/Zsoldier/zPowerCLI
   #>
 param (
 	[Parameter(Mandatory=$False,HelpMessage="ESXi or vCenter to query events from.")]
@@ -48,29 +47,31 @@ param (
 	[String[]]
 	$UserName,
 	
-	[Parameter(Mandatory=$False,HelpMessage="Whether or not to filter by system user. If set to true, filters for system user event. Defaults to False.")]
+	[Parameter(Mandatory=$False,HelpMessage="Whether or not to filter by system user. If set to true, filters for system user task. Defaults to False.")]
 	[boolean]
 	$systemUser,
 
-	[Parameter(Mandatory=$False,HelpMessage="Tag?")]
+	[Parameter(Mandatory=$False,HelpMessage="Whether or not to filter by system user. If set to true, filters for system user task. Defaults to False.")]
 	[string]
 	$Tag,
+    
+    [Parameter(Mandatory=$False,HelpMessage="A switch indicating if the tasks for the children of the Entity will be also be returned.  Example: Cluster is the parent of VMHosts")]
+	[switch]
+	$Recurse,
 
-	[Parameter(Mandatory=$False,ValueFromPipeline=$True,HelpMessage="Looks for events associated w/ specified entity or entities")]
+	[Parameter(Mandatory=$False,ValueFromPipeline=$True,HelpMessage="Looks for tasks associated w/ specified entity or entities")]
 	[VMware.VimAutomation.ViCore.Impl.V1.Inventory.InventoryItemImpl[]]
 	$Entity
 	)
 Begin 
 	{
-	$AllEvents = @()
-	$tm = get-view -Server $Server TaskManager
-	$TaskFilterSpec= New-Object VMware.Vim.TaskFilterSpec
-	#VIServer
+    #VIServer
 	If (!$Server)
-	{
-	If (!$global:DefaultVIServers){Write-Host "You don't appear to be connected to a vCenter or ESXi server." -ForegroundColor:Red; Break}
-	$Server = $global:DefaultVIServers[0]
-	}
+	    {
+	    If (!$global:DefaultVIServers){Write-Host "You don't appear to be connected to a vCenter or ESXi server." -ForegroundColor:Red; Break}
+        }
+	$AllEvents = @()
+	$TaskFilterSpec= New-Object VMware.Vim.TaskFilterSpec
 	#UserName Filter
 	If ($UserName -or $systemUser)
 		{
@@ -101,13 +102,6 @@ Begin
 			$taskfilterspec.Time.TimeType = $TimeType
 			}
 		}
-	#vSphere Object Filter
-	If ($Entity)
-		{
-		$TaskFilterSpec.Entity = New-Object VMware.Vim.TaskFilterSpecByEntity
-		$TaskFilterSpec.Entity.Recursion = "self"
-		$TaskFilterSpec.Entity.Entity = $Entity.ExtensionData.MoRef
-		}
 	If ($Tag)
 		{
 		$TaskFilterSpec.Tag = $Tag
@@ -115,7 +109,22 @@ Begin
 	}
 Process
 	{
+    #VIServer
+	If (!$Server)
+	    {
+	    $Server = ($global:DefaultVIServers | where-object {$_.id -eq $Entity.client.connectionid})
+        If (!$Entity){$Server = $global:DefaultVIServers[0]}
+        Write-Host "Using $($Server.Name) to pull tasks from." -ForegroundColor:Green
+	    }
 	#Query
+    $tm = get-view -Server $Server TaskManager
+    #vSphere Object Filter
+	If ($Entity)
+		{
+		$TaskFilterSpec.Entity = New-Object VMware.Vim.TaskFilterSpecByEntity
+		$TaskFilterSpec.Entity.Recursion = &{if($Recurse){"all"}else{"self"}}
+		$TaskFilterSpec.Entity.Entity = $Entity.ExtensionData.MoRef
+		}
 	$tmCollector = Get-View -Server $server ($tm.CreateCollectorForTasks($TaskFilterSpec))
 	$PageEvents = $tmCollector.ReadNextTasks(100)
 	While ($PageEvents)
