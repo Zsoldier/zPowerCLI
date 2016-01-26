@@ -1,4 +1,4 @@
-﻿#Get-VIEventsFaster
+#Get-VIEventsFaster
 #
 Function Get-VIEventsFaster
 {[cmdletbinding()]
@@ -34,7 +34,6 @@ Function Get-VIEventsFaster
   You can use this one liner to determine valid event 'types'
   .LINK
   http://tech.zsoldier.com/
-  https://github.com/Zsoldier/zPowerCLI
   #>
 param (
 	[Parameter(Mandatory=$False,HelpMessage="ESXi or vCenter to query events from.")]
@@ -67,15 +66,13 @@ param (
 	)
 Begin 
 	{
-	$AllEvents = @()
-	$em = get-view -Server $Server EventManager
-	$EventFilterSpec= New-Object VMware.Vim.EventFilterSpec
-	#VIServer
+    #VIServer
 	If (!$Server)
-	{
-	If (!$global:DefaultVIServers){Write-Host "You don't appear to be connected to a vCenter or ESXi server." -ForegroundColor:Red; Break}
-	$Server = $global:DefaultVIServers[0]
-	}
+	    {
+	    If (!$global:DefaultVIServers){Write-Host "You don't appear to be connected to a vCenter or ESXi server." -ForegroundColor:Red; Break}
+        }
+	$AllEvents = @()
+	$EventFilterSpec= New-Object VMware.Vim.EventFilterSpec
 	#Type
 	If ($EventType)
 		{
@@ -95,13 +92,6 @@ Begin
 			}
 		}
 	
-	#Entity
-	If ($Entity)
-		{
-		$EventFilterSpec.Entity = New-Object VMware.Vim.EventFilterSpecByEntity
-		$EventFilterSpec.Entity.Recursion = &{if($Recurse){"all"}else{"self"}}
-		$EventFilterSpec.Entity.Entity = $Entity.ExtensionData.MoRef
-		}
 	#EventChainID
 	If ($EventChainID)
 		{
@@ -110,7 +100,22 @@ Begin
 	}
 Process
 	{
+    #VIServer
+	If (!$Server)
+	   {
+	   $Server = ($global:DefaultVIServers | where-object {$_.id -eq $Entity.client.connectionid})
+       If (!$Entity){$Server = $global:DefaultVIServers[0]}
+       Write-Host "Using $($Server.Name) to pull events from." -ForegroundColor:Green
+	   }
 	#Query
+    $em = get-view -Server $Server EventManager
+    #Entity
+	If ($Entity)
+		{
+		$EventFilterSpec.Entity = New-Object VMware.Vim.EventFilterSpecByEntity
+		$EventFilterSpec.Entity.Recursion = &{if($Recurse){"all"}else{"self"}}
+		$EventFilterSpec.Entity.Entity = $Entity.ExtensionData.MoRef
+		}
 	$evCollector = Get-View -Server $server ($em.CreateCollectorForEvents($EventFilterSpec))
 	$PageEvents = $evCollector.ReadNextEvents(100)
 	While ($PageEvents)
